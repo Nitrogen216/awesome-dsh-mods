@@ -1,14 +1,32 @@
 # Awesome DSH Mods
 
-个人维护的 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Agent Preset 集合。每个 mode 都是一个可独立复制到 `$DSH_HOME/.agent-presets` 的真实目录。
+A collection of custom [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Agent Presets. Each mode is a self-contained directory that can be installed under `$DSH_HOME/.agent-presets`.
+
+DeepSeek Harness is currently a developer preview and may introduce compatibility-breaking changes. Each mode therefore carries its own compatibility record and validation instructions.
 
 ## Modes
 
-| Mode | 用途 | 状态 |
+| Mode | Purpose | Status |
 |---|---|---|
-| [`dsh-autoresearch`](modes/dsh-autoresearch/) | 证据约束的自主科研、实验晋升与论文交付流水线 | Active |
+| [`dsh-autoresearch`](modes/dsh-autoresearch/) | Evidence-bounded autonomous research, experiment promotion, and paper delivery | Active |
 
-## 安装
+## Prerequisites
+
+The [official DeepSeek Harness run guide](https://github.com/deepseek-ai/deepseek-harness#run) starts DSH with `npx @deepseek-ai/dsh web`. Its current Node.js requirement is `^22.19.0 || >=24.0.0`, so install Node.js 22.19 or newer in the Node 22 line, or Node.js 24 or newer. You also need Git.
+
+- [Download Node.js](https://nodejs.org/en/download)
+- [Download Git](https://git-scm.com/downloads)
+
+Verify both commands before installing a mode:
+
+```text
+node --version
+git --version
+```
+
+## Install on macOS
+
+Open Terminal and run:
 
 ```sh
 git clone https://github.com/Nitrogen216/awesome-dsh-mods.git
@@ -16,33 +34,75 @@ cd awesome-dsh-mods
 ./scripts/install-mode.sh dsh-autoresearch
 ```
 
-安装脚本会把 mode 复制到 `${DSH_HOME:-$HOME/.dsh}/.agent-presets/<mode>`。DeepSeek Harness 的 preset 扫描只接受真实目录，因此脚本不创建符号链接。
-
-如果目标已经存在，脚本会拒绝覆盖。确认要用仓库版本替换时：
+The installer copies the mode to `${DSH_HOME:-$HOME/.dsh}/.agent-presets/dsh-autoresearch`. Start DSH using the command from the official guide:
 
 ```sh
-./scripts/install-mode.sh --replace dsh-autoresearch
+npx @deepseek-ai/dsh web
 ```
 
-替换前，脚本会把原目录移动到带时间戳的同级备份。安装或更新后重启 DSH；仅修改 skill 或资源文件并不会让已有 preset generation 自动重载。
+Open `http://127.0.0.1:3080`, create a new session, and select `dsh-autoresearch` from the Agent Preset picker.
 
-## 更新
+## Install on Windows
+
+Open PowerShell and run:
+
+```powershell
+git clone https://github.com/Nitrogen216/awesome-dsh-mods.git
+Set-Location awesome-dsh-mods
+.\scripts\install-mode.ps1 -Mode dsh-autoresearch
+```
+
+The installer copies the mode to `$env:DSH_HOME\.agent-presets\dsh-autoresearch` when `DSH_HOME` is set, or `$HOME\.dsh\.agent-presets\dsh-autoresearch` otherwise. Start DSH using the command from the official guide:
+
+```powershell
+npx @deepseek-ai/dsh web
+```
+
+Open `http://127.0.0.1:3080`, create a new session, and select `dsh-autoresearch` from the Agent Preset picker.
+
+## Update a mode
+
+### macOS
 
 ```sh
 git pull --ff-only
 ./scripts/install-mode.sh --replace dsh-autoresearch
 ```
 
-DeepSeek Harness 的用户 preset 是完整配置快照，不会随官方 preset 自动升级。更新 Harness 后，应检查对应 mode 的 [`COMPATIBILITY.md`](modes/dsh-autoresearch/COMPATIBILITY.md) 并重新运行验证命令。
+### Windows
 
-## 安全边界
+```powershell
+git pull --ff-only
+.\scripts\install-mode.ps1 -Mode dsh-autoresearch -Replace
+```
 
-本仓库只保存 mode 源文件。不要提交以下机器级数据：
+Both installers refuse to overwrite an existing mode unless replacement is explicitly requested. Replacement moves the previous installation to a timestamped sibling backup before installing the new copy. Restart DSH after installing or updating a mode.
 
-- `$DSH_HOME/.credentials.yaml`
-- `$DSH_HOME/settings.yaml`
-- `$DSH_HOME/sessions/`
-- `$DSH_HOME/storages/`
-- `.env`、API keys、tokens 或浏览器登录状态
+## Run DeepSeek Harness from source
 
-第三方来源与许可证记录在各 mode 的 `THIRD_PARTY_NOTICES.md` 中。
+If you develop against a local Harness checkout, the [official source instructions](https://github.com/deepseek-ai/deepseek-harness#run-from-source) are:
+
+```sh
+git clone https://github.com/deepseek-ai/deepseek-harness.git
+cd deepseek-harness
+pnpm install
+pnpm run build
+pnpm dsh web
+```
+
+The mode installation path is independent of whether DSH runs through `npx` or from source.
+
+## Repository layout
+
+```text
+awesome-dsh-mods/
+├── modes/
+│   └── dsh-autoresearch/
+└── scripts/
+    ├── install-mode.sh
+    └── install-mode.ps1
+```
+
+DSH discovers presets as real directories, so the installers copy a mode instead of creating a symbolic link. User presets are complete configuration snapshots and do not automatically inherit later changes from the official presets. Review the mode's [`COMPATIBILITY.md`](modes/dsh-autoresearch/COMPATIBILITY.md) and rerun its validation steps after upgrading DSH.
+
+Third-party sources and licenses are recorded in each mode's `THIRD_PARTY_NOTICES.md`.

@@ -1,46 +1,56 @@
 # dsh-autoresearch
 
-`dsh-autoresearch` 是基于 DeepSeek Harness `code` preset 扩展的科研 mode。它把已有项目改进、宽泛方向收敛、实验筛选、全量确认、证据晋升和论文交付组织为一个可恢复的 V4 流水线。
+`dsh-autoresearch` is a research-oriented mode derived from the DeepSeek Harness `code` preset. It organizes existing-project improvement, broad-direction convergence, experiment screening, full-budget confirmation, evidence promotion, and paper delivery as a resumable V4 pipeline.
 
-## 主要组成
+## Components
 
-- `agent.cordis.yml`：Agent Plane 组合、persona、工具与运行时策略
-- `skills/`：21 个 mode 私有技能；默认 skill roots 被隔离
-- `plugins/skill-isolation.mjs`：限制自动 skill 加载范围
-- `plugins/oracle-governor.mjs`：限制 Oracle 只能按经过授权的浏览器 Pro 路径运行
-- `tools/transition_guard.py`：持久化并校验科研阶段转换
-- `templates/` 与 `references/`：研究和论文交付模板
-- `vendor/aris-upstream/`：固定的 ARIS 上游文件快照
+- `agent.cordis.yml` defines the Agent Plane composition, persona, tools, and runtime policies.
+- `skills/` contains 21 mode-private skills and isolates the mode from the default skill roots.
+- `plugins/skill-isolation.mjs` restricts automatic skill loading to the curated mode catalog.
+- `plugins/oracle-governor.mjs` restricts Oracle execution to the authorized browser-based Pro route.
+- `tools/transition_guard.py` persists and validates research-stage transitions.
+- `templates/` and `references/` provide research and paper-delivery artifacts.
+- `vendor/aris-upstream/` contains a pinned snapshot of upstream ARIS files.
 
-## 安装
+## Install on macOS
 
-从仓库根目录运行：
+Install Node.js and Git as described in the [repository prerequisites](../../README.md#prerequisites), then run from the repository root:
 
 ```sh
 ./scripts/install-mode.sh dsh-autoresearch
+npx @deepseek-ai/dsh web
 ```
 
-随后在 DSH 的 Agent Preset 选择器中选择 `dsh-autoresearch`。机器级凭据、模型选择和浏览器登录状态不随 mode 分发，需要在新机器单独配置。
+## Install on Windows
 
-## 可选本机依赖
+Install Node.js and Git as described in the [repository prerequisites](../../README.md#prerequisites), then run from the repository root in PowerShell:
 
-- Oracle 路径要求可执行的 `oracle` CLI，并在浏览器中具备所请求的 ChatGPT Pro 能力。
-- `subagent_codex` 与 `subagent_claude_code` 要求活动 Profile 在 Host Plane 安装并挂载对应 provider；缺少 provider 时，科研主流程仍可运行，但相关外部审查不可用。
-- 长训练任务依赖目标项目自己的 Python/GPU/SSH 环境，本 mode 不携带这些环境。
+```powershell
+.\scripts\install-mode.ps1 -Mode dsh-autoresearch
+npx @deepseek-ai/dsh web
+```
 
-## 验证
+Open `http://127.0.0.1:3080`, create a new session, and select `dsh-autoresearch` from the Agent Preset picker. Machine-local credentials, model selection, and browser sign-in state must be configured separately on each computer.
 
-在仓库根目录执行静态与状态机测试：
+## Optional local dependencies
+
+- The Oracle route requires an `oracle` executable and browser access to the requested ChatGPT Pro capability.
+- `subagent_codex` and `subagent_claude_code` require the active Profile to install and mount their providers on the Host Plane. The main research pipeline remains available without those optional external reviewers.
+- Long-running training jobs depend on the target project's own Python, GPU, and SSH environment.
+
+## Validation
+
+Run the static policy and transition-state tests from the `awesome-dsh-mods` repository root:
 
 ```sh
 python3 -B -m unittest discover -s modes/dsh-autoresearch/tools/tests -p 'test_*.py'
 ```
 
-运行插件测试时，把 `<deepseek-harness>` 换成已经构建的 Harness 源码目录：
+Run the runtime plugin tests from a built DeepSeek Harness checkout:
 
 ```sh
 cd <deepseek-harness>
 node --test /absolute/path/to/awesome-dsh-mods/modes/dsh-autoresearch/tools/tests/test_runtime_plugins.mjs
 ```
 
-升级 Harness 后还应启动一个新的 `dsh-autoresearch` 会话，检查 preset mount、skill catalog、Code Mode、后台任务和可选 reviewer provider。
+After a Harness upgrade, also start a fresh `dsh-autoresearch` session and verify preset mounting, the isolated skill catalog, Code Mode, background jobs, and any optional reviewer providers.
