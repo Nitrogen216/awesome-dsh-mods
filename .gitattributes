@@ -1,0 +1,3 @@
+* text=auto
+modes/dsh-autoresearch/vendor/** -whitespace
+modes/dsh-autoresearch/templates/research/*.tmpl whitespace=-blank-at-eof

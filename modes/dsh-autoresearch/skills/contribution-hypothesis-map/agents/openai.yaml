@@ -1,0 +1,4 @@
+interface:
+  display_name: "Contribution Hypothesis Map"
+  short_description: "Map close papers to testable adaptation candidates"
+  default_prompt: "Map literature contributions and assumptions to the observed baseline failure, then rank adaptation candidates."

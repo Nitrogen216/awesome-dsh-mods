@@ -1,0 +1,4 @@
+interface:
+  display_name: "Paper Draft"
+  short_description: "Draft a sectioned LaTeX paper from verified evidence"
+  default_prompt: "Use $paper-write to draft the manuscript section by section from the approved paper plan."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Paper Polish"
+  short_description: "Run two bounded, issue-driven manuscript revision passes"
+  default_prompt: "Use $paper-polish to revise the compiled paper through bounded, evidence-backed issue passes."

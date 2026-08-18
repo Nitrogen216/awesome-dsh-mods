@@ -1,0 +1,4 @@
+interface:
+  display_name: "Improve Existing Project"
+  short_description: "Improve an existing project through verified experiments"
+  default_prompt: "Use $improve-existing-project to autonomously improve this existing project through confirmed evidence."

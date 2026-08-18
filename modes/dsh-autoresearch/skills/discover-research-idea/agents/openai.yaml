@@ -1,0 +1,4 @@
+interface:
+  display_name: "Discover Research Idea"
+  short_description: "Discover and validate one idea from a broad direction"
+  default_prompt: "Use $discover-research-idea to turn this broad direction into one literature-grounded, experimentally tested idea."

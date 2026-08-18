@@ -1,0 +1,4 @@
+interface:
+  display_name: "Paper Compile"
+  short_description: "Compile and visually verify the manuscript PDF"
+  default_prompt: "Use $paper-compile to build the LaTeX project and check the rendered PDF."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Paper Plan"
+  short_description: "Map promoted claims and literature into a paper plan"
+  default_prompt: "Use $paper-plan to build a claims-evidence outline and related-work positioning map."

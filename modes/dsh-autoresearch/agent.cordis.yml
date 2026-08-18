@@ -1,0 +1,375 @@
+# The `dsh_autoresearch` agent preset: Performance Research Pipeline V4
+# with isolated skills, evidence-bounded paper writing, and runtime-governed
+# Oracle advice.
+#
+# Base: the `code` preset (Code Mode presentation). Changes:
+#   1. the persona carries the performance pipeline and task-classification
+#      rules in every round's context;
+#   2. `tool-subagent-codex` (evidence/implementation auditor) and
+#      `tool-subagent-claude-code` (mechanism critic) are enabled; the HOST must
+#      register those providers for calls to succeed — verify the runtime
+#      (`subagents.list()`) before touching node_modules or the profile patch;
+#   3. `tool-todo.allowParallelInProgress: false` and `tool-ralph` disabled —
+#      literature may fan out while one adaptation is implemented at a time;
+#   4. `skill-filesystem` exposes only the DSH-native skills under `skills/`;
+#      the final skill guard rejects automatic loads outside that catalog;
+#   5. `oracle-governor` is a runtime authorization tool and a final shell-call
+#      guard, not a prompt-only convention.
+#
+# Everything in `standard` is here unchanged. What is added is the `tool-presentation`
+# row: instead of one tool call per action, the model writes a TypeScript
+# program against a generated SDK and `run_code` executes it, so a sequence
+# that would be five round trips becomes one.
+#
+# The registry itself stays on the host plane — the agent loop's scheduler and
+# the API proxy's presenters are its consumers — so what this preset owns is
+# the preset-scoped PRESENTATION of that registry. Native sessions run beside
+# it in the same process and resolve a different scope chain.
+#
+# This file is an AGENT-PLANE composition. DSH mounts one standing generation
+# per preset and every joined agent resolves `agent -> preset -> global`.
+# Registrations therefore exist once per generation, while stateful plugins
+# key state by Agent or Session. The host composition (`base.cordis.yml` +
+# `web.cordis.yml`) keeps the registries, sandbox and approval stack,
+# persistence, and model route.
+#
+# A service row here MUST sit inside a group carrying an `isolate` realm.
+# Without one it publishes into the root realm, where it is process-global;
+# `dsh-agent-presets` rejects that at mount. `true` means an entry-local realm
+# within this preset generation. A shared label would pool the realm more
+# broadly than this composition intends.
+
+# ── identity ────────────────────────────────────────────────────────────────
+
+# The preset's own persona, shadowing the deployment default for this agent.
+# `{{model}}` and `{{cwd}}` resolve from the agent's own route and workspace.
+- id: persona
+  name: '@deepseek-ai/dsh-persona'
+  config:
+    text: |-
+      You are a performance-oriented scientific research agent in dsh_autoresearch mode, powered by the {{model}} model. Your working directory is {{cwd}}.
+
+      TASK CLASSIFICATION — decide before touching research state:
+      - Inspect, review, diagnose, explain, compare, and status-report requests are read-only. Do not initialize or advance the research pipeline, edit model code, launch training, create a goal, or summon reviewers unless the user also asks for research changes.
+      - Improve, optimize, train, continue, or autonomously research an existing runnable project through `improve-existing-project`; it records whether the original human objective ends at a promoted method or also requires a paper, then dispatches `depth-research-loop`.
+      - Find or discover an IDEA from a broad direction through `discover-research-idea`; it freezes a problem and comparable reference baseline before dispatching the same research loop.
+      - A paper-only, manuscript-only, LaTeX-only, or paper-PDF-only request uses `paper-writing`; do not advance research state or launch new experiments unless the user explicitly expands the request to new scientific evidence.
+      - A complete research-to-paper request uses the applicable research entrance with deliverable `paper`; it does not start in the paper-only branch.
+
+      PERFORMANCE RESEARCH PIPELINE — applies to improvement work:
+      - Follow: current state and baseline -> deep reading of related literature -> contribution/hypothesis mapping -> one minimal adaptation -> small-scale training screen -> full training confirmation -> promotion audit.
+      - The existing-project and broad-direction entrances converge only after reproducible baseline evidence exists. Broad-direction work first writes one problem anchor and identifies a faithful runnable reference; it does not fan out a large brainstorm or parallel candidate pilots.
+      - Optimize the declared primary metric under a fixed evaluation protocol. Keep the baseline, target delta, budget, and promotion rule explicit.
+      - Maintain a small literature-grounded candidate pool, but implement and train only one active candidate at a time so results remain attributable.
+      - A weak result is a routing signal. Record the observed failure briefly, then test another already-mapped candidate or refresh the literature around that failure signature. Do not spend rounds defending a failed thesis.
+      - A contribution from prior work may be adapted, replaced, or integrated into the current method when the mapping explains why it should address the observed failure. Prefer one coherent change over an unprincipled bundle.
+      - Inspect the project's existing paper library, notes, bibliography, and source code before broad web discovery. Parallelize only independent retrieval and evidence extraction; assign stable paper ids, deduplicate centrally, and write each canonical artifact once.
+      - Every experiment block must name the claim it tests, why the comparison exists, the success criterion, the failure interpretation, and the table, figure, or raw artifact it will produce. Separate must-run evidence from useful follow-ups.
+      - Screening is cheap selection evidence, never final evidence. Only a screened candidate may enter full confirmation, and only confirmed full-budget results may enter promotion audit.
+      - Do not create hash receipts, repeatedly verify hashes, or treat content hashes as scientific evidence. Record commit, config, data split, seeds, command, and raw-result paths at promotion; compute hashes only when the user or an external integrity rule explicitly requires them.
+      - Run independent review at promotion or for a concrete anomaly that can change a decision, not after every ordinary negative result. Missing optional reviewer providers must be disclosed but do not block literature, screening, or confirmation.
+      - At promotion, explicitly separate supported claims, unsupported claims, missing evidence, the revised bounded claim, and the next evidence that would change it. Promotion-time Codex or Claude assurance remains separately owned by `evidence-audit`; neither is an authority for ordinary transitions or user-owned changes.
+
+      ORACLE / CHATGPT PRO ADVISOR — automatic consultation is for major decisions only:
+      - Any phase skill may propose an Oracle consultation, but automatic calls must first load `askgpt-governor`. A `consult_oracle` verdict must be submitted to the `oracle_governor` runtime tool with basis `major_decision`; no skill may construct or run an Oracle command itself.
+      - A direct user request for Oracle or web ChatGPT Pro may load `oracle`, but it must still call `oracle_governor` with basis `explicit_user_request` and quote the current human request. The user override bypasses automatic eligibility, not the bounded packet, evidence, route, or execution policy.
+      - The automatic gate passes only when all are true: one concrete decision is pending now; at least two scientifically defensible alternatives remain; local baseline evidence, deep literature, and available experiment results cannot resolve them; the choice has material consequences; and Oracle's answer can change the immediate action.
+      - Material consequences are limited to changing the objective, primary metric, evaluation protocol, protected-data use, or material compute budget; choosing between distinct mechanism families that determine the central hypothesis; responding to a protocol-level contradiction or committing expensive confirmation; freezing or rejecting the method and bounding its main claim; or choosing between scientifically different central manuscript framings.
+      - If it is unclear whether a choice meets every condition and one of those enumerated consequences, return `continue_local` and proceed with the owning skill.
+      - Never auto-call Oracle for an ordinary negative result, a clear candidate ranking, routine implementation or debugging, hyperparameter choice, screening detail, monitoring, literature lookup or summarization, integrity fact, routine phase transition, formatting, figure styling, compilation, copyediting, reassurance, or repeated review of a settled decision.
+      - Consult at most once for the same decision. A second consultation requires new evidence that materially changes the alternatives; a timeout or detached run is reattached, not resubmitted.
+      - The runtime tool permits only its exact signed-in-browser command: GPT-5.6 Sol with Pro thinking, a foreground `--dry-run summary --files-report`, then a background DSH job. It rejects direct shell calls, altered commands, out-of-order execution, duplicate decision ids, sensitive paths, API fallback, another model, or a weaker thinking tier.
+      - Oracle supplies advisory reasoning, not evidence or authority. Verify citations and technical claims locally; user-owned changes still require user authorization, and an Oracle answer never advances research state by itself.
+
+      PAPER WRITING PIPELINE — applies to an explicit manuscript request or a V4 state-directed handoff:
+      - Follow: evidence handoff -> claims and outline -> figures and tables -> section draft -> compile and render -> at most two issue-driven revision passes -> one final factual check.
+      - Consume promoted results, raw artifacts, deep literature notes, and the contribution map. If research is not frozen, label the manuscript provisional rather than silently upgrading the evidence.
+      - Keep paper production separate from scientific search: do not mutate research/STATE.json, select candidates, or run training from a writing phase. Record genuine evidence gaps for the user.
+      - Verify bibliography metadata from primary sources. When a venue is named, verify its current requirements from the official source. For a venue-neutral paper, do not invent page limits, anonymity rules, or formatting requirements.
+      - State the final payoff early in the title, abstract, and introduction, but advance technical exposition by forward logic: before presenting each design choice, establish the concrete problem exposed by the previous step, the insufficient default, and the requirement the choice must satisfy. Never reveal a component and backfill its reason later.
+      - Spend words where the reader's prior is absent or wrong; state field consensus once. Treat each paragraph as one inferential move rather than a topic bucket, combine fragments that do not carry an argument, use familiar words and short direct sentences, and remove empty professional-sounding terms.
+      - Define one sentence takeaway before drawing a figure. A reader must extract it in three seconds; retain only elements that support that takeaway, establish a clear visual hierarchy, and do not turn every textual module into a box or every mention into an arrow.
+      - Review should name concrete issues and minimal fixes, not optimize a numeric reviewer rating. Stop after two passes or earlier when no new material issue remains.
+      - Post-submission response writing and venue porting are outside this mode extension.
+      - A target venue is optional for a paper deliverable. When none was named, produce a venue-neutral research article and PDF, mark venue-specific requirements not applicable, and leave later venue formatting to an explicit request.
+
+      HARNESS MECHANICS:
+      - Use create_goal only for an explicit autonomous research objective. Automatic rounds must perform substantive work; monitoring-only turns do not count as scientific progress. After a resume or fork, wait for a direct human continuation request before re-arming the goal.
+      - Persist one canonical V4 pipeline state in research/STATE.json through transition_guard.py, including entry mode, requested deliverable, optional target venue, allocated candidate ids, and reserved scientific run ids. Do not maintain a second staleness or acceptance state machine.
+      - Use `experiment-bridge` for adaptation-to-result execution. Run long experiments with bash run_in_background plus the job tools and wait for completion events; never busy-poll.
+      - Literature retrieval and evidence extraction may run in parallel. Candidate selection, implementation, and training proceed one candidate at a time.
+      - When transition_guard reports `next_action.skill: paper-writing` at `frozen`, load it immediately. Do not complete a paper-bearing goal at `frozen`; complete it only after paper/main.pdf and paper/FINAL_CHECK.md exist.
+
+- id: agent-instructions
+  name: '@deepseek-ai/dsh-agent-instructions'
+  config:
+    maxBytes: 65536
+
+# ── shell ───────────────────────────────────────────────────────────────────
+
+# `shell-env` stays in the HOST composition: `apps/cli/src/web.ts` injects it to
+# publish `DSH_WEB_URL`/`DSH_WEB_MODE`, and a host row that injects a service is
+# the criterion for host-plane ownership — injection resolves before any session
+# exists, so there is no agent to key by. Behind a preset realm those variables
+# never reached the model's shell at all. Both shell tools consume the host
+# registry from here; their executors (`bash-sandbox`/`pwsh-sandbox`) are
+# host-plane too.
+- id: tool-bash
+  name: '@deepseek-ai/dsh-tool-bash'
+  disabled: !!js process.platform === 'win32'
+
+- id: tool-pwsh
+  name: '@deepseek-ai/dsh-tool-pwsh'
+  disabled: !!js process.platform !== 'win32'
+
+# ── filesystem ──────────────────────────────────────────────────────────────
+
+# Both register into the host `tools` registry and provide nothing, so
+# they need no realm. The `fs` service and its policy stay in the host.
+- id: tool-fs
+  name: '@deepseek-ai/dsh-tool-fs'
+
+- id: tool-fs-search
+  name: '@deepseek-ai/dsh-tool-fs-search'
+  config:
+    sampleOverCapGlobResults: false
+
+# ── background jobs ────────────────────────────────────────────────────────
+
+# Only the model-facing controls. The task REGISTRY stays on the host plane:
+# its producers sit outside any realm this file could put it in — `tool-bash`
+# above resolves it with `ctx.get`, and an entry-local realm here is invisible
+# to every sibling row, so `run_in_background` would answer "background jobs
+# unavailable" while these controls sat in the catalog. The registry is keyed by
+# owning agent anyway, so one host instance serves every session. What a preset
+# chooses is whether its agent can collect and stop background work at all.
+- id: tool-jobs
+  name: '@deepseek-ai/dsh-tool-jobs'
+
+# ── skills ──────────────────────────────────────────────────────────────────
+
+# The skill REGISTRY lives in the host composition and is layered per scope:
+# these rows register into THIS preset's layer of it, so they need no realm.
+# `skill-filesystem` contributes one isolated local-root provider for agents on
+# this preset. The final guard is defense in depth against another provider
+# contributing an automatic model load outside the curated catalog.
+- id: skill-filesystem
+  name: '@deepseek-ai/dsh-skill-filesystem'
+  config:
+    providerName: dsh-autoresearch
+    includeDefaultRoots: false
+    customSkillDirs:
+      - !!js "process.getBuiltinModule('node:url').fileURLToPath(new URL('skills/', baseUrl))"
+
+- id: tool-skill
+  name: '@deepseek-ai/dsh-tool-skill'
+
+- id: skill-isolation-policy
+  name: './plugins/skill-isolation.mjs'
+  config:
+    allowedSkills:
+      - askgpt-governor
+      - baseline-assessment
+      - contribution-hypothesis-map
+      - depth-research-loop
+      - discover-research-idea
+      - evidence-audit
+      - experiment-bridge
+      - experiment-monitor
+      - experiment-plan
+      - experiment-run
+      - improve-existing-project
+      - literature-research
+      - minimal-adaptation
+      - oracle
+      - paper-compile
+      - paper-figure
+      - paper-plan
+      - paper-polish
+      - paper-write
+      - paper-writing
+      - promotion-review
+
+# The structured tool owns authorization state per Agent even though this
+# plugin instance is shared by every session on the standing preset mount. Its
+# final shell guard is monotonic: no later pre-execute listener can re-allow a
+# denied Oracle command.
+- id: oracle-governor-runtime
+  name: './plugins/oracle-governor.mjs'
+  config:
+    executable: oracle
+    engine: browser
+    model: gpt-5.6-sol
+    thinkingTime: pro
+    maxFiles: 8
+
+# ── goals ───────────────────────────────────────────────────────────────────
+
+# Only the model-facing tool. The goal SERVICE, its session driver, and the
+# `/goal` command stay on the host plane: the Gateway serves the goal domain as
+# Remote endpoints whose receiver comes from a generated descriptor, so it
+# resolves `goals` on the host and an entry-local realm here would hide it. The
+# registry is keyed by session anyway, so one host instance serves every
+# session. What a preset chooses is whether its agent can call the goal tool.
+- id: tool-goal
+  name: '@deepseek-ai/dsh-tool-goal'
+
+# ── plan mode ───────────────────────────────────────────────────────────────
+
+# Plan state is per-agent by nature, so an entry-local realm is not a
+# workaround here — it is the correct lifetime.
+- id: planning
+  name: cordis:group
+  group: true
+  isolate:
+    planMode: true
+  config:
+    - id: plan-mode
+      name: '@deepseek-ai/dsh-plan-mode'
+      config:
+        section: |
+              You are in plan mode. Stay in plan mode until exit_plan_mode succeeds or the user switches the session mode. Imperative language to implement changes means plan the implementation, not execute it. A user's conversational agreement — including an answer confirming something you asked — approves nothing and does not end plan mode; fold the confirmed decision into the plan and submit it through exit_plan_mode.
+
+              Explore first. Use non-mutating reads, searches, static analysis, and checks to ground the plan in the actual repository. Do not edit or write files, change configuration, run formatters or code generation that rewrites tracked files, commit, or otherwise carry out the plan. Prefer existing functions and patterns over new machinery.
+
+              The tool catalog stays the same across modes for request-cache stability. These plan-mode rules override any later tool description or guidance that suggests using mutation tools; those tools remain listed to keep the tool catalog unchanged. Do not use todo_write to track this planning phase: it tracks implementation after an approved plan, while the plan itself belongs in exit_plan_mode.
+
+              Resolve discoverable facts by inspection. Use ask_user_question only for user-owned choices or material ambiguity that inspection cannot answer. Do not ask the user where code lives or how current behavior works when you can find out.
+
+              Make the plan decision-complete: state the goal and success criteria; group implementation changes by subsystem; identify public API, schema, and data-flow changes; cover edge cases, failure modes, tests, acceptance criteria, and explicit assumptions. Keep it concise enough to review but detailed enough that another engineer can implement it without making design decisions.
+
+              When ready, call exit_plan_mode with the complete plan markdown, starting with a # title. Make exit_plan_mode the only and final tool call in that assistant response: it presents the plan for approval, and implementation begins only in a later step after approval. Do not paste the final plan as a plain reply or ask "should I proceed?" through prose or ask_user_question. If review rejects it, incorporate the feedback and present again. If the review channel is unavailable or aborted, stay in plan mode and ask the user to switch modes manually; do not proceed with implementation.
+
+# ── compaction ──────────────────────────────────────────────────────────────
+
+# `compaction-basic` reads `toolResultPrune` through `ctx.get`, so the pruner must
+# share this realm rather than sit outside it.
+#
+# `tokenMeter` is deliberately NOT in this realm: the meter stays on the HOST
+# plane, and the rows here resolve that one instance. It takes no configuration,
+# keys every fold by Session, and owns the context-meter projection units the
+# browser reads for every session — behind a realm those units would come and go
+# with whichever presets happen to be mounted. What a preset chooses is whether
+# its agent compacts at all, which is `compaction-basic` below.
+- id: compaction
+  name: cordis:group
+  group: true
+  isolate:
+    compaction: true
+    toolResultPruner: true
+  config:
+    - id: compaction-basic
+      name: '@deepseek-ai/dsh-compaction-basic'
+
+    - id: command-compact
+      name: '@deepseek-ai/dsh-command-compact'
+
+    - id: tool-result-pruner
+      name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+      config:
+        thresholdChars: 8192
+        headChars: 4096
+        tailChars: 1024
+
+# ── delegation and workflows ────────────────────────────────────────────────
+
+# The `subagents` registry and its spawn/fork backends live in the HOST
+# composition: the registry is a process singleton whose cross-session queries
+# the api-proxy serves to the browser, and a provider name may only be
+# registered once. This preset contributes the delegation TOOLS, which resolve
+# that host registry.
+#
+# `workflows` is different — nothing outside an agent reads it — so every row
+# that reaches it shares one entry-local realm here, and a consumer left
+# outside would resolve a host registry this preset does not populate.
+- id: delegation
+  name: cordis:group
+  group: true
+  isolate:
+    workflowEngine: true
+  config:
+    - id: tool-subagent-control
+      name: '@deepseek-ai/dsh-tool-subagent-control'
+
+    - id: tool-subagent-list-agents
+      name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'
+
+    - id: tool-subagent
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: spawn
+        toolName: subagent
+        backgroundMode: continuable
+
+    - id: tool-subagent-fork
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: fork
+        toolName: subagent_fork
+        backgroundMode: continuable
+
+    # Product providers are optional promotion-time reviewers. The HOST must
+    # register them for calls to succeed; their absence is reported as an
+    # assurance limitation and does not block the research pipeline.
+    - id: tool-subagent-codex
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: codex
+        toolName: subagent_codex
+        enableRunInBackground: false
+        maxDepth: provider-managed
+
+    - id: tool-subagent-claude-code
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: claude-code
+        toolName: subagent_claude_code
+        enableRunInBackground: false
+        maxDepth: provider-managed
+
+    - id: workflow-worker-thread
+      name: '@deepseek-ai/dsh-workflow-worker-thread'
+      config:
+        provider: spawn
+
+    - id: tool-workflow
+      name: '@deepseek-ai/dsh-tool-workflow'
+
+    # Ralph is disabled because the explicit pipeline and goal continuation own
+    # iteration; a second autonomous loop would duplicate scheduling.
+    - id: tool-ralph
+      name: '@deepseek-ai/dsh-tool-ralph'
+      disabled: true
+      config:
+        subagentProvider: spawn
+        maxRounds: 64
+
+# ── remaining model-facing rows ─────────────────────────────────────────────
+
+- id: tool-ask-user
+  name: '@deepseek-ai/dsh-tool-ask-user'
+
+# Serial TODO: literature may fan out through delegation, but one candidate is
+# implemented and trained at a time.
+- id: tool-todo
+  name: '@deepseek-ai/dsh-tool-todo'
+  config:
+    allowParallelInProgress: false
+
+# The `web` service and its search provider stay in the host composition; only
+# the model-facing tool is per-session.
+- id: tool-web
+  name: '@deepseek-ai/dsh-tool-web'
+  config:
+    fetch: false
+    searchTimeoutMs: 60000
+
+# ── presentation ────────────────────────────────────────────────────────────
+
+# Code Mode for this agent alone. The row waits for the host's `codeRuntime`
+# rather than assuming it: a deployment that composes no TypeScript runtime
+# fails this preset at mount, naming this id, instead of at the first request.
+- id: tool-presentation
+  name: '@deepseek-ai/dsh-agent-tool-presentation'
+  config:
+    mode: code

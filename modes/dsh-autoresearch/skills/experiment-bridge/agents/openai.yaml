@@ -1,0 +1,4 @@
+interface:
+  display_name: "Experiment Bridge"
+  short_description: "Bridge experiment plans to managed DSH background runs"
+  default_prompt: "Use $experiment-bridge to implement, launch, collect, and route the current experiment plan through DSH jobs."

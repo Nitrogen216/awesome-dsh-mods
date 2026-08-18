@@ -1,0 +1,2 @@
+name: dsh_autoresearch
+description: 两个科研主入口：改进已有项目，或从宽泛方向发现一个可检验 IDEA；随后以 DSH 原生后台任务完成基线、深读文献、最小适配、筛选、确认与晋升。原始自主目标包含论文时，frozen 自动交接证据约束的论文流水线；未指定 venue 时生成 venue-neutral PDF。Oracle 仅能经重大决策运行时 governor 调用网页登录的 ChatGPT Pro。

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Minimal Adaptation"
+  short_description: "Select and implement one literature-grounded adaptation"
+  default_prompt: "Select one mapped candidate and implement its smallest attributable adaptation for screening."

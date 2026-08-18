@@ -1,0 +1,4 @@
+interface:
+  display_name: "Baseline Assessment"
+  short_description: "Freeze the current baseline and performance objective"
+  default_prompt: "Assess the current implementation, protocol, and baseline metrics before research changes."
